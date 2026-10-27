@@ -1,0 +1,68 @@
+// Teste do teclado matricial 4x4 no ESP32 (sem biblioteca)
+// Abra o Monitor Serial em 115200 e aperte as teclas.
+//
+// Ligacao (os 8 fios do teclado, da esquerda para a direita, vistos de frente):
+//   Fio 1-4 = LINHAS  (L1..L4)  -> GPIO 13, 12, 14, 27
+//   Fio 5-8 = COLUNAS (C1..C4)  -> GPIO 26, 25, 33, 32
+// Se o seu teclado estiver com a ordem diferente, o proprio teste mostra
+// a linha/coluna lida, e voce so troca os numeros dos pinos abaixo.
+
+const int LINHAS = 4;
+const int COLUNAS = 4;
+
+const int pinosLinhas[LINHAS]   = {13, 12, 14, 27};
+const int pinosColunas[COLUNAS] = {26, 25, 33, 32};
+
+const char teclas[LINHAS][COLUNAS] = {
+  {'1', '2', '3', 'A'},
+  {'4', '5', '6', 'B'},
+  {'7', '8', '9', 'C'},
+  {'*', '0', '#', 'D'}
+};
+
+char ultimaTecla = 0;
+unsigned long ultimoTempo = 0;
+
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+
+  for (int l = 0; l < LINHAS; l++) {
+    pinMode(pinosLinhas[l], OUTPUT);
+    digitalWrite(pinosLinhas[l], HIGH);  // linha inativa = HIGH
+  }
+  for (int c = 0; c < COLUNAS; c++) {
+    pinMode(pinosColunas[c], INPUT_PULLUP);  // coluna le HIGH ate alguem apertar
+  }
+
+  Serial.println("=== Teste do teclado matricial 4x4 ===");
+  Serial.println("Aperte uma tecla...");
+}
+
+void loop() {
+  char tecla = 0;
+  int linhaLida = -1, colunaLida = -1;
+
+  // Varredura: ativa uma linha por vez (LOW) e procura qual coluna caiu para LOW
+  for (int l = 0; l < LINHAS && tecla == 0; l++) {
+    digitalWrite(pinosLinhas[l], LOW);
+    delayMicroseconds(50);  // tempo para o sinal estabilizar
+
+    for (int c = 0; c < COLUNAS; c++) {
+      if (digitalRead(pinosColunas[c]) == LOW) {
+        tecla = teclas[l][c];
+        linhaLida = l;
+        colunaLida = c;
+        break;
+      }
+    }
+    digitalWrite(pinosLinhas[l], HIGH);
+  }
+
+  // Imprime so quando aparece uma tecla nova (evita repetir enquanto segura)
+  if (tecla != 0 && tecla != ultimaTecla && millis() - ultimoTempo > 50) {
+    Serial.printf("Tecla: %c   (linha %d, coluna %d)\n", tecla, linhaLida + 1, colunaLida + 1);
+    ultimoTempo = millis();
+  }
+  ultimaTecla = tecla;  // vira 0 quando solta, permitindo apertar a mesma de novo
+}
